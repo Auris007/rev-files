@@ -1,5 +1,5 @@
-### YT Music v5.39.52<br>
+### YT Music v5.41.50<br>
 Tools used:<br>
  - ReVanced CLI v2.20.0<br>
- - ReVanced Patches v2.156.0<br>
- - ReVanced Integrations v0.93.1<br>
+ - ReVanced Patches v2.159.0<br>
+ - ReVanced Integrations v0.95.0<br>
