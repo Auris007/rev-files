@@ -1,5 +1,5 @@
-### YouTube v18.03.36<br>
+### YouTube v18.05.40<br>
 Tools used:<br>
- - ReVanced CLI v2.20.0<br>
- - ReVanced Patches v2.164.0<br>
- - ReVanced Integrations v0.99.0<br>
+ - ReVanced CLI v2.20.1<br>
+ - ReVanced Patches v2.166.0<br>
+ - ReVanced Integrations v0.100.1<br>
