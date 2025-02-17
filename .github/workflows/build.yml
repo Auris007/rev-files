@@ -107,14 +107,13 @@ jobs:
           file_pattern: build.md *-update.json
           commit_message: Bump version ${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}
 
-      - name: Report to Telegram
+      - name: Report to Discord
         env:
-          TG_TOKEN: ${{ secrets.TG_TOKEN }}
-        if: env.TG_TOKEN != null
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        if: env.DISCORD_WEBHOOK != null
         run: |
           cd build || { echo "build folder not found"; exit 1; }
-
-          TG_CHAT="@rvc_magisk"
+          
           NL=$'\n'
           APKS=""
           MODULES=""
@@ -130,18 +129,43 @@ jobs:
           APKS=${APKS#"$NL"}
 
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
-          MSG="*New build!*
+
+          MSG="**New build!**
 
           ${BODY}
 
-          *▼ Download Links:*
+          **▼ Download Links:**"
+          # Add Modules section if MODULES is not empty
+          if [[ -n "$MODULES" ]]; then
+            MSG+="
           Modules:
-          ${MODULES}
-
+          ${MODULES}"
+          fi
+          
+          # Add APKs section if APKS is not empty
+          if [[ -n "$APKS" ]]; then
+            MSG+="
           APKs:
-          ${APKS}
-          "
-          echo "'$MSG'"
+          ${APKS}"
+          fi
+
+          # Wrap all URLs in MSG with < >
+          MSG=$(echo "$MSG" | sed -E 's|\((https?://[^)]+)\)|(<\1>)|g')
+          
+          # Truncate message to 9450 characters (Discord limit)
           MSG=${MSG:0:9450}
-          POST="https://api.telegram.org/bot${TG_TOKEN}/sendMessage"
-          curl -X POST --data-urlencode "parse_mode=Markdown" --data-urlencode "disable_web_page_preview=true" --data-urlencode "text=${MSG}" --data-urlencode "chat_id=${TG_CHAT}" "$POST"
+
+          # Construct JSON payload without escaping newlines
+          SEND_JSON=$(jq -n \
+            --arg content "$MSG" \
+            --arg username "ReVanced" \
+            --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
+            '{content: $content, username: $username, avatar_url: $avatar_url}')
+
+          # Debugging: print JSON payload
+          echo "$SEND_JSON" | jq .
+
+          # Send payload to Discord webhook
+          POST="https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
+          curl -H "Content-Type: application/json" -X POST -d "$SEND_JSON" "$POST"
+
