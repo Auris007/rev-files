@@ -1,0 +1,83 @@
+name: Test Discord
+on:
+  workflow_call:
+    inputs:
+      from_ci:
+        type: boolean
+        required: false
+        default: true
+
+  workflow_dispatch:
+
+jobs:
+  run:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Report to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        if: env.DISCORD_WEBHOOK != null
+        run: |
+          cd build || { echo "build folder not found"; exit 1; }
+          
+          NL=$'\n'
+          APKS=""
+          MODULES=""
+          for OUTPUT in *; do
+            DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
+            if [[ $OUTPUT = *.apk ]]; then
+              APKS+="${NL}📦[${OUTPUT}](${DL_URL})"
+            elif [[ $OUTPUT = *.zip ]]; then
+              MODULES+="${NL}📦[${OUTPUT}](${DL_URL})"
+            fi
+          done
+          MODULES=${MODULES#"$NL"}
+          APKS=${APKS#"$NL"}
+
+          BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
+
+          MSG="**New build!**
+
+          ${BODY}
+
+          **▼ Download Links:**"
+          # Add Modules section if MODULES is not empty
+          if [[ -n "$MODULES" ]]; then
+            MSG+="
+          Modules:
+          ${MODULES}"
+          fi
+          
+          # Add APKs section if APKS is not empty
+          if [[ -n "$APKS" ]]; then
+            MSG+="
+          APKs:
+          ${APKS}"
+          fi
+
+          # Wrap all URLs in MSG with < >
+          MSG=$(echo "$MSG" | sed -E 's|\((https?://[^)]+)\)|(<\1>)|g')
+          
+          # Truncate message to 9450 characters (Discord limit)
+          MSG=${MSG:0:9450}
+
+          # Construct JSON payload without escaping newlines
+          SEND_JSON=$(jq -n \
+            --arg content "$MSG" \
+            --arg username "ReVanced" \
+            --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
+            '{content: $content, username: $username, avatar_url: $avatar_url}')
+
+          # Debugging: print JSON payload
+          echo "$SEND_JSON" | jq .
+
+          # Send payload to Discord webhook
+          POST="https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
+          curl -H "Content-Type: application/json" -X POST -d "$SEND_JSON" "$POST"
+
