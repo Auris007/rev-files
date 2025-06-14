@@ -24,7 +24,6 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         if: env.DISCORD_WEBHOOK != null
         run: |
-          cd build || { echo "build folder not found"; exit 1; }
           
           NL=$'\n'
           APKS=""
