@@ -123,10 +123,10 @@ jobs:
             LABEL=$(echo "$OUTPUT" | sed 's/\.[^.]*$//; s/[-_]/ /g; s/\<./\U&/g')
             if [[ $OUTPUT = *.apk ]]; then
               APKS+="${NL}📦[${OUTPUT}](${DL_URL})"
-              BUTTONS+=("{\"type\": 1, \"components\": [{\"type\": 2, \"style\": 5, \"url\": \"$DL_URL\", \"label\": \"$LABEL\"}]}")
+              BUTTONS+=("{\"type\": 2, \"style\": 5, \"url\": \"$DL_URL\", \"label\": \"$LABEL\"}")
             elif [[ $OUTPUT = *.zip ]]; then
               MODULES+="${NL}📦[${OUTPUT}](${DL_URL})"
-              BUTTONS+=("{\"type\": 1, \"components\": [{\"type\": 2, \"style\": 5, \"url\": \"$DL_URL\", \"label\": \"$LABEL\"}]}")
+              BUTTONS+=("{\"type\": 2, \"style\": 5, \"url\": \"$DL_URL\", \"label\": \"$LABEL\"}")
             fi
           done
           MODULES=${MODULES#"$NL"}
@@ -153,15 +153,40 @@ jobs:
           MSG=$(echo "$MSG" | sed -E 's|\((https?://[^)]+)\)|(<\1>)|g')
           MSG=${MSG:0:9450}
 
-          BUTTONS_JSON=$(printf "%s," "${BUTTONS[@]}" | sed 's/,$//')
+          # Group buttons into action rows (max 5 buttons per row, 5 rows total)
+          BUTTONS_JSON="["
+          COUNT=0
+          ROW=""
+          for BUTTON in "${BUTTONS[@]}"; do
+            if [ $COUNT -eq 0 ]; then
+              ROW="{\"type\": 1, \"components\": [$BUTTON"
+            else
+              ROW="$ROW,$BUTTON"
+            fi
+            COUNT=$((COUNT + 1))
+            if [ $COUNT -eq 5 ]; then
+              BUTTONS_JSON="$BUTTONS_JSON$ROW]}"
+              COUNT=0
+              ROW=""
+              BUTTONS_JSON="$BUTTONS_JSON,"
+            fi
+          done
+          if [ $COUNT -gt 0 ]; then
+            BUTTONS_JSON="$BUTTONS_JSON$ROW]}"
+          fi
+          BUTTONS_JSON="$BUTTONS_JSON]"
+
+          # Remove trailing comma if present
+          BUTTONS_JSON=$(echo "$BUTTONS_JSON" | sed 's/,]$/]/')
+
           SEND_JSON=$(jq -n \
             --arg content "$MSG" \
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
-            --argjson components "[$BUTTONS_JSON]" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components, flags: 4}')
+            --argjson components "$BUTTONS_JSON" \
+            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components}')
 
           echo "$SEND_JSON" | jq .
 
           POST="https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
-          curl -H "Content-Type: application/json" -X POST -d "$SEND_JSON" "$POST"
+          curl -v -H "Content-Type: application/json" -X POST -d "$SEND_JSON" "$POST"
