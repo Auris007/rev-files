@@ -136,19 +136,7 @@ jobs:
 
           MSG="**New build!**
 
-          ${BODY}
-
-          **▼ Download Links:**"
-          if [[ -n "$MODULES" ]]; then
-            MSG+="
-          Modules:
-          ${MODULES}"
-          fi
-          if [[ -n "$APKS" ]]; then
-            MSG+="
-          APKs:
-          ${APKS}"
-          fi
+          ${BODY}"
 
           MSG=$(echo "$MSG" | sed -E 's|\((https?://[^)]+)\)|(<\1>)|g')
           MSG=${MSG:0:9450}
