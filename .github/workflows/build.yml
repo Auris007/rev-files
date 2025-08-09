@@ -116,8 +116,8 @@ jobs:
           NL=$'\n'
           declare -a APK_BUTTONS
           declare -a MODULE_BUTTONS
-          APK_COUNT=0
-          MODULE_COUNT=0
+          declare -i APK_COUNT=0
+          declare -i MODULE_COUNT=0
           for OUTPUT in *; do
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
             if [[ $OUTPUT = *.apk ]]; then
