@@ -128,7 +128,7 @@ jobs:
             if [[ $OUTPUT = *.apk ]]; then
               APKS+="\n📦 [${OUTPUT}](${DL_URL})"
               APK_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
-              echo "'$APK_COUNT'"
+              echo "'$APK_COUNT'\n"
               APK_COUNT+=1
               echo "'$APK_COUNT'"
             elif [[ $OUTPUT = *.zip ]]; then
