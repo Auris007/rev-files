@@ -146,9 +146,6 @@ jobs:
           MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Download Links:**${NL}Modules:${NL}${MODULES}${NL}${NL}APKs:${NL}${APKS}${NL}"
           echo "'$MSG'"
       
-          # Truncate message to 2000 characters (Discord's limit per message)
-          MSG=${MSG:0:2000}
-      
           # Create components array for buttons
           COMPONENTS="[]"
           if [ $TOTAL_BUTTONS -gt 0 ]; then
@@ -169,7 +166,7 @@ jobs:
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
             --argjson components "$COMPONENTS" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4, components: $components}')
+            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components}')
       
           # Send message to Discord webhook
           curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
