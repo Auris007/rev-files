@@ -106,6 +106,7 @@ jobs:
           skip_checkout: true
           file_pattern: build.md *-update.json
           commit_message: Bump version ${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}
+
       - name: Report to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
@@ -127,15 +128,12 @@ jobs:
             echo "Processing file: $OUTPUT"
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
             if [[ $OUTPUT = *.apk ]]; then
-              # Use jq to escape filename
-              BUTTON=$(jq -n --arg label "$OUTPUT" --arg url "$DL_URL" \
-                '{type:2, style:5, label:$label, url:$url}')
-              APK_BUTTONS+=("$BUTTON")
+              APK_BUTTONS+=("$(jq -n --arg label "$OUTPUT" --arg url "$DL_URL" \
+                '{type:2, style:5, label:$label, url:$url}')")
               APK_COUNT+=1
             elif [[ $OUTPUT = *.zip ]]; then
-              BUTTON=$(jq -n --arg label "$OUTPUT" --arg url "$DL_URL" \
-                '{type:2, style:5, label:$label, url:$url}')
-              MODULE_BUTTONS+=("$BUTTON")
+              MODULE_BUTTONS+=("$(jq -n --arg label "$OUTPUT" --arg url "$DL_URL" \
+                '{type:2, style:5, label:$label, url:$url}')")
               MODULE_COUNT+=1
             fi
           done
@@ -145,6 +143,7 @@ jobs:
           echo "APK_COUNT: $APK_COUNT"
           echo "MODULE_COUNT: $MODULE_COUNT"
           echo "TOTAL_BUTTONS: $TOTAL_BUTTONS"
+      
           if [ $TOTAL_BUTTONS -gt 25 ]; then
             echo "Error: Too many files ($TOTAL_BUTTONS). Discord supports up to 25 buttons per message."
             exit 1
@@ -152,6 +151,8 @@ jobs:
       
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
           MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Downloads:**${NL}"
+      
+          # Debug: Print the message with newlines expanded
           echo "Message with newlines:"
           printf "%s\n" "$MSG"
       
@@ -163,24 +164,21 @@ jobs:
           if [ $TOTAL_BUTTONS -gt 0 ]; then
             ALL_BUTTONS=()
             if [ $MODULE_COUNT -gt 0 ]; then
-              MODULE_COMPONENTS=$(jq -n --argjson buttons "[${MODULE_BUTTONS[*]}]" \
-                '{type:1, components:$buttons}')
-              ALL_BUTTONS+=("$MODULE_COMPONENTS")
+              ALL_BUTTONS+=("$(jq -n --argjson buttons "[${MODULE_BUTTONS[*]}]" \
+                '{type:1, components:$buttons}')")
             fi
             if [ $APK_COUNT -gt 0 ]; then
-              APK_COMPONENTS=$(jq -n --argjson buttons "[${APK_BUTTONS[*]}]" \
-                '{type:1, components:$buttons}')
-              ALL_BUTTONS+=("$APK_COMPONENTS")
+              ALL_BUTTONS+=("$(jq -n --argjson buttons "[${APK_BUTTONS[*]}]" \
+                '{type:1, components:$buttons}')")
             fi
-            COMPONENTS=$(jq -n --argjson rows "[${ALL_BUTTONS[*]}]" '$rows')
+            COMPONENTS="[$(IFS=,; echo "${ALL_BUTTONS[*]}")]"
           fi
       
-          # Debug: Validate and print components
+          # Debug: Validate and print the components array
           echo "Components array:"
-          if echo "$COMPONENTS" | jq . > /dev/null 2>&1; then
-            echo "$COMPONENTS"
-          else
-            echo "Error: Invalid JSON in COMPONENTS"
+          echo "$COMPONENTS"
+          if ! echo "$COMPONENTS" | jq . > /dev/null 2>&1; then
+            echo "Error: COMPONENTS is not valid JSON"
             exit 1
           fi
       
@@ -190,11 +188,11 @@ jobs:
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
             --argjson components "$COMPONENTS" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components}')
+            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4, components: $components}')
       
-          # Debug: Print and save JSON payload
-          echo "JSON payload:"
+          # Debug: Save and print the JSON payload
           echo "$JSON_PAYLOAD" > payload.json
+          echo "JSON payload saved to payload.json:"
           cat payload.json
       
           # Send message to Discord webhook
@@ -208,5 +206,10 @@ jobs:
           echo "Curl response:"
           echo "$RESPONSE"
       
-          # Send message to Discord webhook
-          curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}?with_components=true"
+          # Check if curl was successful (200 OK or 204 No Content)
+          if echo "$RESPONSE" | grep -q "HTTP.*20[0-4]"; then
+            echo "Webhook request successful (HTTP 200 or 204)"
+          else
+            echo "Error: Webhook request failed. See response above for details."
+            exit 1
+          fi
