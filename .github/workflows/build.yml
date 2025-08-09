@@ -158,5 +158,4 @@ jobs:
           curl -X POST \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD" \
-            "$DISCORD_WEBHOOK?with_components=true"
-
+            "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}?with_components=true"
