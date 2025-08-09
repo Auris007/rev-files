@@ -109,8 +109,8 @@ jobs:
 
       - name: Report to Discord
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        if: env.DISCORD_WEBHOOK_URL != null
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
+        if: secrets.DISCORD_WEBHOOK != null
         run: |
           cd build || { echo "build folder not found"; exit 1; }
       
