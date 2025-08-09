@@ -128,11 +128,11 @@ jobs:
             if [[ $OUTPUT = *.apk ]]; then
               APKS+="\n📦 [${OUTPUT}](${DL_URL})"
               APK_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
-              ((APK_COUNT++))
+     
             elif [[ $OUTPUT = *.zip ]]; then
               MODULES+="\n📦 [${OUTPUT}](${DL_URL})"
               MODULE_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
-              ((MODULE_COUNT++))
+
             fi
           done
           MODULES=${MODULES#"\n"}
