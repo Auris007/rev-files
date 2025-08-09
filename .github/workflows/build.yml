@@ -120,8 +120,8 @@ jobs:
           NL=$'\n'
           declare -a APK_BUTTONS
           declare -a MODULE_BUTTONS
-          declare -i APK_COUNT=0
-          declare -i MODULE_COUNT=0
+          APK_COUNT=0
+          MODULE_COUNT=0
           echo "Files being processed:"
           shopt -s nullglob
           for OUTPUT in *.apk *.zip; do
