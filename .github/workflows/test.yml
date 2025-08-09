@@ -114,8 +114,6 @@ jobs:
           cd build || { echo "build folder not found"; exit 1; }
       
           NL=$'\n'
-          APKS=""
-          MODULES=""
           declare -a APK_BUTTONS
           declare -a MODULE_BUTTONS
           APK_COUNT=0
@@ -123,17 +121,13 @@ jobs:
           for OUTPUT in *; do
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
             if [[ $OUTPUT = *.apk ]]; then
-              APKS+="${NL}📦 ${OUTPUT}"
               APK_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
               APK_COUNT+=1
             elif [[ $OUTPUT = *.zip ]]; then
-              MODULES+="${NL}📦 ${OUTPUT}"
               MODULE_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
               MODULE_COUNT+=1
             fi
           done
-          MODULES=${MODULES#"$NL"}
-          APKS=${APKS#"$NL"}
       
           # Check if total buttons exceed Discord's limit (25 buttons)
           TOTAL_BUTTONS=$((APK_COUNT + MODULE_COUNT))
@@ -143,7 +137,7 @@ jobs:
           fi
       
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
-          MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Download Links:**${NL}Modules:${NL}${MODULES}${NL}${NL}APKs:${NL}${APKS}${NL}"
+          MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Downloads:**${NL}"
           
           # Debug: Print the message with newlines expanded
           echo "Message with newlines:"
