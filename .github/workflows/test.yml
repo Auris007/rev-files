@@ -194,25 +194,16 @@ jobs:
           echo "JSON payload saved to payload.json:"
           cat payload.json
       
-          # Attempt to send webhook with retries (max 3 attempts)
-          ATTEMPTS=3
-          SUCCESS=0
-          for ((i=1; i<=ATTEMPTS; i++)); do
-            echo "Sending webhook (attempt $i/$ATTEMPTS)..."
-            RESPONSE=$(curl -X POST -H "Content-Type: application/json" -d @payload.json "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}" -v 2>&1)
-            echo "Curl response (attempt $i):"
-            echo "$RESPONSE"
-            if echo "$RESPONSE" | grep -q "HTTP.*200"; then
-              echo "Webhook request successful (HTTP 200)"
-              SUCCESS=1
-              break
-            else
-              echo "Webhook request failed. Retrying..."
-              sleep 2
-            fi
-          done
+          # Send message to Discord webhook
+          echo "Sending webhook..."
+          RESPONSE=$(curl -X POST -H "Content-Type: application/json" -d @payload.json "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}" -v 2>&1)
+          echo "Curl response:"
+          echo "$RESPONSE"
       
-          if [ $SUCCESS -eq 0 ]; then
-            echo "Error: Failed to send webhook after $ATTEMPTS attempts. See response above for details."
+          # Check if curl was successful (200 OK or 204 No Content)
+          if echo "$RESPONSE" | grep -q "HTTP.*20[0-4]"; then
+            echo "Webhook request successful (HTTP 200 or 204)"
+          else
+            echo "Error: Webhook request failed. See response above for details."
             exit 1
           fi
