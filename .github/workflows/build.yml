@@ -118,24 +118,33 @@ jobs:
           declare -a MODULE_BUTTONS
           declare -i APK_COUNT=0
           declare -i MODULE_COUNT=0
-          for OUTPUT in *; do
+          echo "Files being processed:"
+          for OUTPUT in *.apk *.zip; do
+            if [ "$OUTPUT" = "*.apk" ] && [ "$OUTPUT" = "*.zip" ]; then
+              echo "No .apk or .zip files found"
+              break
+            fi
+            echo "Processing file: $OUTPUT"
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
             if [[ $OUTPUT = *.apk ]]; then
-              APK_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
+              # Use jq to escape filename
+              BUTTON=$(jq -n --arg label "$OUTPUT" --arg url "$DL_URL" \
+                '{type:2, style:5, label:$label, url:$url}')
+              APK_BUTTONS+=("$BUTTON")
               APK_COUNT+=1
             elif [[ $OUTPUT = *.zip ]]; then
-              MODULE_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
+              BUTTON=$(jq -n --arg label "$OUTPUT" --arg url "$DL_URL" \
+                '{type:2, style:5, label:$label, url:$url}')
+              MODULE_BUTTONS+=("$BUTTON")
               MODULE_COUNT+=1
             fi
           done
-
+      
           # Check if total buttons exceed Discord's limit (25 buttons)
           TOTAL_BUTTONS=$((APK_COUNT + MODULE_COUNT))
-
-          echo "'$TOTAL_BUTTONS'\n"
-          echo "'$APK_COUNT'\n"
-          echo "'$MODULE_COUNT'\n"
-          
+          echo "APK_COUNT: $APK_COUNT"
+          echo "MODULE_COUNT: $MODULE_COUNT"
+          echo "TOTAL_BUTTONS: $TOTAL_BUTTONS"
           if [ $TOTAL_BUTTONS -gt 25 ]; then
             echo "Error: Too many files ($TOTAL_BUTTONS). Discord supports up to 25 buttons per message."
             exit 1
@@ -143,8 +152,6 @@ jobs:
       
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
           MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Downloads:**${NL}"
-          
-          # Debug: Print the message with newlines expanded
           echo "Message with newlines:"
           printf "%s\n" "$MSG"
       
@@ -154,20 +161,28 @@ jobs:
           # Create components array for buttons
           COMPONENTS="[]"
           if [ $TOTAL_BUTTONS -gt 0 ]; then
-            # Combine buttons into action rows (up to 5 buttons per row)
             ALL_BUTTONS=()
             if [ $MODULE_COUNT -gt 0 ]; then
-              ALL_BUTTONS+=("{\"type\":1,\"components\":[${MODULE_BUTTONS[*]}]}")
+              MODULE_COMPONENTS=$(jq -n --argjson buttons "[${MODULE_BUTTONS[*]}]" \
+                '{type:1, components:$buttons}')
+              ALL_BUTTONS+=("$MODULE_COMPONENTS")
             fi
             if [ $APK_COUNT -gt 0 ]; then
-              ALL_BUTTONS+=("{\"type\":1,\"components\":[${APK_BUTTONS[*]}]}")
+              APK_COMPONENTS=$(jq -n --argjson buttons "[${APK_BUTTONS[*]}]" \
+                '{type:1, components:$buttons}')
+              ALL_BUTTONS+=("$APK_COMPONENTS")
             fi
-            COMPONENTS="[$(IFS=,; echo "${ALL_BUTTONS[*]}")]"
+            COMPONENTS=$(jq -n --argjson rows "[${ALL_BUTTONS[*]}]" '$rows')
           fi
       
-          # Debug: Print the components array
+          # Debug: Validate and print components
           echo "Components array:"
-          echo "$COMPONENTS"
+          if echo "$COMPONENTS" | jq . > /dev/null 2>&1; then
+            echo "$COMPONENTS"
+          else
+            echo "Error: Invalid JSON in COMPONENTS"
+            exit 1
+          fi
       
           # Create JSON payload for Discord webhook
           JSON_PAYLOAD=$(jq -n \
@@ -175,11 +190,23 @@ jobs:
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
             --argjson components "$COMPONENTS" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4, components: $components}')
+            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components}')
       
-          # Debug: Print the JSON payload
+          # Debug: Print and save JSON payload
           echo "JSON payload:"
-          echo "$JSON_PAYLOAD"
+          echo "$JSON_PAYLOAD" > payload.json
+          cat payload.json
+      
+          # Send message to Discord webhook
+          echo "Sending webhook..."
+          RESPONSE=$(curl -H "Content-Type: application/json; charset=utf-8" \
+                          -H "User-Agent: curl/8.5.0" \
+                          -H "Accept: */*" \
+                          -d @payload.json \
+                          -v \
+                          "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}?with_components=true")
+          echo "Curl response:"
+          echo "$RESPONSE"
       
           # Send message to Discord webhook
           curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}?with_components=true"
