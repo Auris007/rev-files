@@ -194,16 +194,7 @@ jobs:
           echo "JSON payload saved to payload.json:"
           cat payload.json
       
-          # Send message to Discord webhook
-          echo "Sending webhook..."
-          RESPONSE=$(curl -X POST -H "Content-Type: application/json" -d @payload.json "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}" -v 2>&1)
-          echo "Curl response:"
-          echo "$RESPONSE"
-      
-          # Check if curl was successful (200 OK or 204 No Content)
-          if echo "$RESPONSE" | grep -q "HTTP.*20[0-4]"; then
-            echo "Webhook request successful (HTTP 200 or 204)"
-          else
-            echo "Error: Webhook request failed. See response above for details."
-            exit 1
-          fi
+          JSON_PAYLOADQQ={"content":"**New build!**\n\nMusic: 8.31.51  \n\nInstall [Microg](https://github.com/ReVanced/GmsCore/releases) for non-root YouTube and YT Music APKs  \nUse [zygisk-detach](https://github.com/j-hc/zygisk-detach) to detach root ReVanced YouTube and YT Music from Play Store  \n\n[revanced-magisk-module](https://github.com/j-hc/revanced-magisk-module)\n  \nCLI: j-hc/revanced-cli-5.0.0-all.jar  \nPatches: ReVanced/patches-5.33.0.rvp  \n[Changelog](https://github.com/ReVanced/revanced-patches/releases/tag/v5.33.0)  \n\n**▼ Download Links:**\nModules:\n\n\nAPKs:\n📦 youtube-music-revanced-v8.31.51-arm64-v8a.apk\n","username":"ReVanced","avatar_url":"https://i.imgur.com/epsOc0q.png","flags":4,"components":[{"type":1,"components":[{"type":2,"style":5,"label":"youtube-music-revanced-v8.31.51-arm64-v8a.apk","url":"https://github.com/Auris007/rev-files/releases/download/68/youtube-music-revanced-v8.31.51-arm64-v8a.apk"}]}]}
+
+
+          curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOADQQ" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
