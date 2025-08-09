@@ -158,5 +158,5 @@ jobs:
           curl -X POST \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD" \
-            "$DISCORD_WEBHOOK"
+            "$DISCORD_WEBHOOK?with_components=true"
 
