@@ -128,6 +128,18 @@ jobs:
               MODULE_COUNT+=1
             fi
           done
+
+          # Check if total buttons exceed Discord's limit (25 buttons)
+          TOTAL_BUTTONS=$((APK_COUNT + MODULE_COUNT))
+
+          echo "'$TOTAL_BUTTONS'\n"
+          echo "'$APK_COUNT'\n"
+          echo "'$MODULE_COUNT'\n"
+          
+          if [ $TOTAL_BUTTONS -gt 25 ]; then
+            echo "Error: Too many files ($TOTAL_BUTTONS). Discord supports up to 25 buttons per message."
+            exit 1
+          fi
       
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
           MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Downloads:**${NL}"
