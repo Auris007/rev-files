@@ -129,7 +129,7 @@ jobs:
               APKS+="\n📦 [${OUTPUT}](${DL_URL})"
               APK_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
               echo "'$APK_COUNT'"
-              APK_COUNT++
+              APK_COUNT+=1
               echo "'$APK_COUNT'"
             elif [[ $OUTPUT = *.zip ]]; then
               MODULES+="\n📦 [${OUTPUT}](${DL_URL})"
