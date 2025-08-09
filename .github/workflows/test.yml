@@ -139,4 +139,4 @@ jobs:
           JSON_PAYLOAD=$(jq -n --arg content "$MSG" '{content: $content}')
       
           # Send message to Discord webhook
-          curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "$DISCORD_WEBHOOK_URL"
+          curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
