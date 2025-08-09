@@ -1,4 +1,4 @@
-name: [Test] Build Modules
+name: test build
 on:
   workflow_call:
     inputs:
