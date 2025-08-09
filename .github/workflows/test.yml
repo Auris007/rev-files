@@ -186,7 +186,7 @@ jobs:
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
             --argjson components "$COMPONENTS" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4, components: $components}')
+            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components}')
       
           # Debug: Print the JSON payload
           echo "JSON payload:"
