@@ -54,4 +54,4 @@ jobs:
                -H "Accept: */*" \
                -d @test_payload.json \
                -v \
-               https://discord.com/api/webhooks/${env.DISCORD_WEBHOOK}?with_components=true
+               https://discord.com/api/webhooks/${DISCORD_WEBHOOK}?with_components=true
