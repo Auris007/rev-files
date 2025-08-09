@@ -140,7 +140,7 @@ jobs:
             --arg content "$MSG" \
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
-            '{content: $content, username: $username, avatar_url: $avatar_url}')
+            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4}')
       
           # Send message to Discord webhook
           curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
