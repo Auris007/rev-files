@@ -113,103 +113,50 @@ jobs:
         if: env.DISCORD_WEBHOOK != null
         run: |
           cd build || { echo "build folder not found"; exit 1; }
-      
+
           NL=$'\n'
-          declare -a APK_BUTTONS
-          declare -a MODULE_BUTTONS
-          declare -i APK_COUNT=0
-          declare -i MODULE_COUNT=0
-          echo "Files being processed:"
-          for OUTPUT in *.apk *.zip; do
-            if [ "$OUTPUT" = "*.apk" ] && [ "$OUTPUT" = "*.zip" ]; then
-              echo "No .apk or .zip files found"
-              break
-            fi
-            echo "Processing file: $OUTPUT"
+          APKS=""
+          MODULES=""
+          APK_BUTTONS=""
+          MODULE_BUTTONS=""
+
+          for OUTPUT in *; do
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
             if [[ $OUTPUT = *.apk ]]; then
-              APK_BUTTONS+=("$(jq -n --arg label "$OUTPUT" --arg url "$DL_URL" \
-                '{type:2, style:5, label:$label, url:$url}')")
-              APK_COUNT+=1
+              APKS+="📦 ${OUTPUT}${NL}"
+              APK_BUTTONS+="$(jq -n --arg label "${OUTPUT}" --arg url "$DL_URL" \
+                '{type: 2, style: 5, label: $label, url: $url}'),"
             elif [[ $OUTPUT = *.zip ]]; then
-              MODULE_BUTTONS+=("$(jq -n --arg label "$OUTPUT" --arg url "$DL_URL" \
-                '{type:2, style:5, label:$label, url:$url}')")
-              MODULE_COUNT+=1
+              MODULES+="📦 ${OUTPUT}${NL}"
+              MODULE_BUTTONS+="$(jq -n --arg label "${OUTPUT}" --arg url "$DL_URL" \
+                '{type: 2, style: 5, label: $label, url: $url}'),"
             fi
           done
-      
-          # Check if total buttons exceed Discord's limit (25 buttons)
-          TOTAL_BUTTONS=$((APK_COUNT + MODULE_COUNT))
-          echo "APK_COUNT: $APK_COUNT"
-          echo "MODULE_COUNT: $MODULE_COUNT"
-          echo "TOTAL_BUTTONS: $TOTAL_BUTTONS"
-      
-          if [ $TOTAL_BUTTONS -gt 25 ]; then
-            echo "Error: Too many files ($TOTAL_BUTTONS). Discord supports up to 25 buttons per message."
-            exit 1
-          fi
-      
+
+          # Remove trailing commas
+          APK_BUTTONS="[${APK_BUTTONS%,}]"
+          MODULE_BUTTONS="[${MODULE_BUTTONS%,}]"
+
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
-          MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Downloads:**${NL}"
-      
-          # Debug: Print the message with newlines expanded
-          echo "Message with newlines:"
-          printf "%s\n" "$MSG"
-      
-          # Truncate message to 2000 characters (Discord's limit)
-          MSG=${MSG:0:2000}
-      
-          # Create components array for buttons
-          COMPONENTS="[]"
-          if [ $TOTAL_BUTTONS -gt 0 ]; then
-            ALL_BUTTONS=()
-            if [ $MODULE_COUNT -gt 0 ]; then
-              ALL_BUTTONS+=("$(jq -n --argjson buttons "[${MODULE_BUTTONS[*]}]" \
-                '{type:1, components:$buttons}')")
-            fi
-            if [ $APK_COUNT -gt 0 ]; then
-              ALL_BUTTONS+=("$(jq -n --argjson buttons "[${APK_BUTTONS[*]}]" \
-                '{type:1, components:$buttons}')")
-            fi
-            COMPONENTS="[$(IFS=,; echo "${ALL_BUTTONS[*]}")]"
-          fi
-      
-          # Debug: Validate and print the components array
-          echo "Components array:"
-          echo "$COMPONENTS"
-          if ! echo "$COMPONENTS" | jq . > /dev/null 2>&1; then
-            echo "Error: COMPONENTS is not valid JSON"
-            exit 1
-          fi
-      
-          # Create JSON payload for Discord webhook
+
           JSON_PAYLOAD=$(jq -n \
-            --arg content "$MSG" \
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
-            --argjson components "$COMPONENTS" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4, components: $components}')
-      
-          # Debug: Save and print the JSON payload
-          echo "$JSON_PAYLOAD" > payload.json
-          echo "JSON payload saved to payload.json:"
-          cat payload.json
-      
-          # Send message to Discord webhook
-          echo "Sending webhook..."
-          RESPONSE=$(curl -H "Content-Type: application/json; charset=utf-8" \
-                          -H "User-Agent: curl/8.5.0" \
-                          -H "Accept: */*" \
-                          -d @payload.json \
-                          -v \
-                          "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}?with_components=true")
-          echo "Curl response:"
-          echo "$RESPONSE"
-      
-          # Check if curl was successful (200 OK or 204 No Content)
-          if echo "$RESPONSE" | grep -q "HTTP.*20[0-4]"; then
-            echo "Webhook request successful (HTTP 200 or 204)"
-          else
-            echo "Error: Webhook request failed. See response above for details."
-            exit 1
-          fi
+            --arg body "**New build!**\n\n${BODY}" \
+            --argjson apk_buttons "${APK_BUTTONS}" \
+            --argjson module_buttons "${MODULE_BUTTONS}" \
+            '{
+              username: $username,
+              avatar_url: $avatar_url,
+              content: $body,
+              components: [
+                { type: 1, components: $apk_buttons },
+                { type: 1, components: $module_buttons }
+              ]
+            }')
+
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD" \
+            "$DISCORD_WEBHOOK"
+
