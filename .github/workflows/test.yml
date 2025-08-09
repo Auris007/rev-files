@@ -136,7 +136,11 @@ jobs:
           MSG=${MSG:0:2000}
       
           # Create JSON payload for Discord webhook
-          JSON_PAYLOAD=$(jq -n --arg content "$MSG" '{content: $content}')
+          JSON_PAYLOAD=$(jq -n \
+            --arg content "$MSG" \
+            --arg username "ReVanced" \
+            --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
+            '{content: $content, username: $username, avatar_url: $avatar_url}')
       
           # Send message to Discord webhook
           curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
