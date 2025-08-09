@@ -129,7 +129,7 @@ jobs:
           APKS=${APKS#"\n"}
       
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
-          MSG="*New build!*${NL}${NL}${BODY}${NL}${NL}*▼ Download Links:*${NL}Modules:${NL}${MODULES}${NL}${NL}APKs:${NL}${APKS}${NL}"
+          MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Download Links:**${NL}Modules:${NL}${MODULES}${NL}${NL}APKs:${NL}${APKS}${NL}"
           echo "'$MSG'"
       
           # Truncate message to 2000 characters (Discord's limit per message)
