@@ -106,75 +106,75 @@ jobs:
           skip_checkout: true
           file_pattern: build.md *-update.json
           commit_message: Bump version ${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}
-
       - name: Report to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         if: env.DISCORD_WEBHOOK != null
         run: |
           cd build || { echo "build folder not found"; exit 1; }
-          
+      
           NL=$'\n'
-          APKS=""
-          MODULES=""
-          BUTTONS=()
+          declare -a APK_BUTTONS
+          declare -a MODULE_BUTTONS
+          APK_COUNT=0
+          MODULE_COUNT=0
           for OUTPUT in *; do
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
-            LABEL=$(echo "$OUTPUT" | sed 's/\.[^.]*$//; s/[-_]/ /g; s/\<./\U&/g')
             if [[ $OUTPUT = *.apk ]]; then
-              APKS+="${NL}📦[${OUTPUT}](${DL_URL})"
-              BUTTONS+=("{\"type\": 2, \"style\": 5, \"url\": \"$DL_URL\", \"label\": \"$LABEL\"}")
+              APK_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
+              APK_COUNT+=1
             elif [[ $OUTPUT = *.zip ]]; then
-              MODULES+="${NL}📦[${OUTPUT}](${DL_URL})"
-              BUTTONS+=("{\"type\": 2, \"style\": 5, \"url\": \"$DL_URL\", \"label\": \"$LABEL\"}")
+              MODULE_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
+              MODULE_COUNT+=1
             fi
           done
-          MODULES=${MODULES#"$NL"}
-          APKS=${APKS#"$NL"}
-
-          BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
-
-          MSG="**New build!**
-
-          ${BODY}"
-
-          MSG=$(echo "$MSG" | sed -E 's|\((https?://[^)]+)\)|(<\1>)|g')
-          MSG=${MSG:0:9450}
-
-          # Group buttons into action rows (max 5 buttons per row, 5 rows total)
-          BUTTONS_JSON="["
-          COUNT=0
-          ROW=""
-          for BUTTON in "${BUTTONS[@]}"; do
-            if [ $COUNT -eq 0 ]; then
-              ROW="{\"type\": 1, \"components\": [$BUTTON"
-            else
-              ROW="$ROW,$BUTTON"
-            fi
-            COUNT=$((COUNT + 1))
-            if [ $COUNT -eq 5 ]; then
-              BUTTONS_JSON="$BUTTONS_JSON$ROW]}"
-              COUNT=0
-              ROW=""
-              BUTTONS_JSON="$BUTTONS_JSON,"
-            fi
-          done
-          if [ $COUNT -gt 0 ]; then
-            BUTTONS_JSON="$BUTTONS_JSON$ROW]}"
+      
+          # Check if total buttons exceed Discord's limit (25 buttons)
+          TOTAL_BUTTONS=$((APK_COUNT + MODULE_COUNT))
+          if [ $TOTAL_BUTTONS -gt 25 ]; then
+            echo "Error: Too many files ($TOTAL_BUTTONS). Discord supports up to 25 buttons per message."
+            exit 1
           fi
-          BUTTONS_JSON="$BUTTONS_JSON]"
-
-          # Remove trailing comma if present
-          BUTTONS_JSON=$(echo "$BUTTONS_JSON" | sed 's/,]$/]/')
-
-          SEND_JSON=$(jq -n \
+      
+          BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
+          MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Downloads:**${NL}"
+          
+          # Debug: Print the message with newlines expanded
+          echo "Message with newlines:"
+          printf "%s\n" "$MSG"
+      
+          # Truncate message to 2000 characters (Discord's limit)
+          MSG=${MSG:0:2000}
+      
+          # Create components array for buttons
+          COMPONENTS="[]"
+          if [ $TOTAL_BUTTONS -gt 0 ]; then
+            # Combine buttons into action rows (up to 5 buttons per row)
+            ALL_BUTTONS=()
+            if [ $MODULE_COUNT -gt 0 ]; then
+              ALL_BUTTONS+=("{\"type\":1,\"components\":[${MODULE_BUTTONS[*]}]}")
+            fi
+            if [ $APK_COUNT -gt 0 ]; then
+              ALL_BUTTONS+=("{\"type\":1,\"components\":[${APK_BUTTONS[*]}]}")
+            fi
+            COMPONENTS="[$(IFS=,; echo "${ALL_BUTTONS[*]}")]"
+          fi
+      
+          # Debug: Print the components array
+          echo "Components array:"
+          echo "$COMPONENTS"
+      
+          # Create JSON payload for Discord webhook
+          JSON_PAYLOAD=$(jq -n \
             --arg content "$MSG" \
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
-            --argjson components "$BUTTONS_JSON" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components}')
-
-          echo "$SEND_JSON" | jq .
-
-          POST="https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
-          curl -v -H "Content-Type: application/json" -X POST -d "$SEND_JSON" "$POST"
+            --argjson components "$COMPONENTS" \
+            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4, components: $components}')
+      
+          # Debug: Print the JSON payload
+          echo "JSON payload:"
+          echo "$JSON_PAYLOAD"
+      
+          # Send message to Discord webhook
+          curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}?with_components=true"
