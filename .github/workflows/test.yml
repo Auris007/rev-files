@@ -13,12 +13,7 @@ jobs:
   run:
     permissions: write-all
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/setup-java@v4
-        with:
-          distribution: "zulu"
-          java-version: "17"
-          
+    steps:          
       - name: Report to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
@@ -59,4 +54,4 @@ jobs:
                -H "Accept: */*" \
                -d @test_payload.json \
                -v \
-               https://discord.com/api/webhooks/${YOUR_DISCORD_WEBHOOK}?with_components=true
+               https://discord.com/api/webhooks/${env.DISCORD_WEBHOOK}?with_components=true
