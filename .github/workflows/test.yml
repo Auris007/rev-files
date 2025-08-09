@@ -111,7 +111,18 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         if: env.DISCORD_WEBHOOK != null
         run: |
-          cd build || { echo "build folder not found"; exit 1; }
+          echo "Current directory: $(pwd)"
+          echo "Directory contents:"
+          ls -la
+          if [ ! -d "build" ]; then
+            echo "Error: build folder not found in $(pwd)"
+            echo "Searching for build folder:"
+            find . -type d -name build
+            exit 1
+          fi
+          cd build
+          echo "Changed to build directory: $(pwd)"
+          ls -la
       
           NL=$'\n'
           APKS=""
@@ -144,12 +155,17 @@ jobs:
       
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
           MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Download Links:**${NL}Modules:${NL}${MODULES}${NL}${NL}APKs:${NL}${APKS}${NL}"
-          echo "'$MSG'"
+          
+          # Debug: Print the message with newlines expanded
+          echo "Message with newlines:"
+          printf "%s\n" "$MSG"
+      
+          # Truncate message to 2000 characters (Discord's limit)
+          MSG=${MSG:0:2000}
       
           # Create components array for buttons
           COMPONENTS="[]"
           if [ $TOTAL_BUTTONS -gt 0 ]; then
-            # Combine buttons into action rows (up to 5 buttons per row)
             ALL_BUTTONS=()
             if [ $MODULE_COUNT -gt 0 ]; then
               ALL_BUTTONS+=("{\"type\":1,\"components\":[${MODULE_BUTTONS[*]}]}")
@@ -160,13 +176,21 @@ jobs:
             COMPONENTS="[$(IFS=,; echo "${ALL_BUTTONS[*]}")]"
           fi
       
+          # Debug: Print the components array
+          echo "Components array:"
+          echo "$COMPONENTS"
+      
           # Create JSON payload for Discord webhook
           JSON_PAYLOAD=$(jq -n \
             --arg content "$MSG" \
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
             --argjson components "$COMPONENTS" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components}')
+            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4, components: $components}')
+      
+          # Debug: Print the JSON payload
+          echo "JSON payload:"
+          echo "$JSON_PAYLOAD"
       
           # Send message to Discord webhook
-          curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
+          curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}" -v
