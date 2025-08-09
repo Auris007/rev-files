@@ -146,6 +146,10 @@ jobs:
           MODULES=${MODULES#"$NL"}
           APKS=${APKS#"$NL"}
       
+          # Debug: Print counts
+          echo "APK_COUNT: $APK_COUNT"
+          echo "MODULE_COUNT: $MODULE_COUNT"
+      
           # Check if total buttons exceed Discord's limit (25 buttons)
           TOTAL_BUTTONS=$((APK_COUNT + MODULE_COUNT))
           if [ $TOTAL_BUTTONS -gt 25 ]; then
@@ -155,10 +159,7 @@ jobs:
       
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
           MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Download Links:**${NL}Modules:${NL}${MODULES}${NL}${NL}APKs:${NL}${APKS}${NL}"
-          
-          # Debug: Print the message with newlines expanded
-          echo "Message with newlines:"
-          printf "%s\n" "$MSG"
+          echo "'$MSG'"
       
           # Truncate message to 2000 characters (Discord's limit)
           MSG=${MSG:0:2000}
@@ -176,7 +177,7 @@ jobs:
             COMPONENTS="[$(IFS=,; echo "${ALL_BUTTONS[*]}")]"
           fi
       
-          # Debug: Print the components array
+          # Debug: Print components array
           echo "Components array:"
           echo "$COMPONENTS"
       
@@ -186,11 +187,21 @@ jobs:
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
             --argjson components "$COMPONENTS" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components}')
+            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4, components: $components}')
       
-          # Debug: Print the JSON payload
+          # Debug: Print JSON payload
           echo "JSON payload:"
           echo "$JSON_PAYLOAD"
       
-          # Send message to Discord webhook
-          curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}" -v
+          # Send message to Discord webhook and capture response
+          RESPONSE=$(curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}" -v 2>&1)
+          echo "Curl response:"
+          echo "$RESPONSE"
+      
+          # Check if curl was successful
+          if echo "$RESPONSE" | grep -q "HTTP.*200"; then
+            echo "Webhook request successful (HTTP 200)"
+          else
+            echo "Webhook request failed. See response above for details."
+            exit 1
+          fi
