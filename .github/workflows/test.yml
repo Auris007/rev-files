@@ -106,7 +106,6 @@ jobs:
           skip_checkout: true
           file_pattern: build.md *-update.json
           commit_message: Bump version ${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}
-
       - name: Report to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
@@ -117,28 +116,31 @@ jobs:
           NL=$'\n'
           APKS=""
           MODULES=""
-          
           declare -a APK_BUTTONS
           declare -a MODULE_BUTTONS
           APK_COUNT=0
           MODULE_COUNT=0
-          
           for OUTPUT in *; do
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
             if [[ $OUTPUT = *.apk ]]; then
-              APKS+="\n📦 [${OUTPUT}](${DL_URL})"
+              APKS+="${NL}📦 ${OUTPUT}"
               APK_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
-              echo "'$APK_COUNT'\n"
               APK_COUNT+=1
-              echo "'$APK_COUNT'"
             elif [[ $OUTPUT = *.zip ]]; then
-              MODULES+="\n📦 [${OUTPUT}](${DL_URL})"
+              MODULES+="${NL}📦 ${OUTPUT}"
               MODULE_BUTTONS+=("{\"type\":2,\"style\":5,\"label\":\"${OUTPUT}\",\"url\":\"${DL_URL}\"}")
-
+              MODULE_COUNT+=1
             fi
           done
-          MODULES=${MODULES#"\n"}
-          APKS=${APKS#"\n"}
+          MODULES=${MODULES#"$NL"}
+          APKS=${APKS#"$NL"}
+      
+          # Check if total buttons exceed Discord's limit (25 buttons)
+          TOTAL_BUTTONS=$((APK_COUNT + MODULE_COUNT))
+          if [ $TOTAL_BUTTONS -gt 25 ]; then
+            echo "Error: Too many files ($TOTAL_BUTTONS). Discord supports up to 25 buttons per message."
+            exit 1
+          fi
       
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
           MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Download Links:**${NL}Modules:${NL}${MODULES}${NL}${NL}APKs:${NL}${APKS}${NL}"
@@ -147,12 +149,27 @@ jobs:
           # Truncate message to 2000 characters (Discord's limit per message)
           MSG=${MSG:0:2000}
       
+          # Create components array for buttons
+          COMPONENTS="[]"
+          if [ $TOTAL_BUTTONS -gt 0 ]; then
+            # Combine buttons into action rows (up to 5 buttons per row)
+            ALL_BUTTONS=()
+            if [ $MODULE_COUNT -gt 0 ]; then
+              ALL_BUTTONS+=("{\"type\":1,\"components\":[${MODULE_BUTTONS[*]}]}")
+            fi
+            if [ $APK_COUNT -gt 0 ]; then
+              ALL_BUTTONS+=("{\"type\":1,\"components\":[${APK_BUTTONS[*]}]}")
+            fi
+            COMPONENTS="[$(IFS=,; echo "${ALL_BUTTONS[*]}")]"
+          fi
+      
           # Create JSON payload for Discord webhook
           JSON_PAYLOAD=$(jq -n \
             --arg content "$MSG" \
             --arg username "ReVanced" \
             --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
-            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4}')
+            --argjson components "$COMPONENTS" \
+            '{content: $content, username: $username, avatar_url: $avatar_url, flags: 4, components: $components}')
       
           # Send message to Discord webhook
           curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}"
