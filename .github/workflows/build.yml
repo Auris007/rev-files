@@ -107,41 +107,64 @@ jobs:
           file_pattern: build.md *-update.json
           commit_message: Bump version ${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}
 
-      - name: Report to Telegram
+      - name: Report to Discord
         env:
-          TG_TOKEN: ${{ secrets.TG_TOKEN }}
-        if: env.TG_TOKEN != null
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        if: env.DISCORD_WEBHOOK != null
         run: |
           cd build || { echo "build folder not found"; exit 1; }
-
-          TG_CHAT="@rvc_magisk"
+      
           NL=$'\n'
-          APKS=""
-          MODULES=""
+
+          jq -n '{"components": []}' > payload.json
+
+          # Load apk files first
           for OUTPUT in *; do
             DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
             if [[ $OUTPUT = *.apk ]]; then
-              APKS+="${NL}📦[${OUTPUT}](${DL_URL})"
-            elif [[ $OUTPUT = *.zip ]]; then
-              MODULES+="${NL}📦[${OUTPUT}](${DL_URL})"
+              jq --arg dl "$DL_URL" --arg label "$OUTPUT" \
+                                            '.components += [ { "type": 1,
+                                              "components": [ { "type": 2,
+                                              "style": 5,
+                                              "url": $dl,
+                                              "label": $label } ] } ]' \
+                payload.json > tmp && mv tmp payload.json
             fi
           done
-          MODULES=${MODULES#"$NL"}
-          APKS=${APKS#"$NL"}
 
+          # Load apk files first
+          for OUTPUT in *; do
+            DL_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}/${OUTPUT}"
+            if [[ $OUTPUT = *.zip ]]; then
+              jq --arg dl "$DL_URL" --arg label "$OUTPUT" \
+                                            '.components += [ { "type": 1,
+                                              "components": [ { "type": 2,
+                                              "style": 5,
+                                              "url": $dl,
+                                              "label": $label } ] } ]' \
+                payload.json > tmp && mv tmp payload.json
+            fi
+          done
+
+          cat payload.json | jq .
+      
           BODY="$(sed 's/^\* \*\*/↪ \*\*/g; s/^\* `/↪ \*\*/g; s/`/\*/g; s/^\* /\↪/g; s/\*\*/\*/g; s/###//g; s/^- /↪ /g; /^==/d;' ../build.md)"
-          MSG="*New build!*
-
-          ${BODY}
-
-          *▼ Download Links:*
-          Modules:
-          ${MODULES}
-
-          APKs:
-          ${APKS}
-          "
+          MSG="**New build!**${NL}${NL}${BODY}${NL}${NL}**▼ Downloads:**${NL}"
+          
           echo "'$MSG'"
-          MSG=${MSG:0:9450}
-          POST="https://api.telegram.org/bot${TG_TOKEN}/sendMessage"
-          curl -X POST --data-urlencode "parse_mode=Markdown" --data-urlencode "disable_web_page_preview=true" --data-urlencode "text=${MSG}" --data-urlencode "chat_id=${TG_CHAT}" "$POST"
+      
+          # Truncate message to 2000 characters (Discord's limit per message)
+          MSG=${MSG:0:2000}
+      
+          # Create JSON payload for Discord webhook
+          JSON_PAYLOAD=$(jq -n \
+            --arg content "$MSG" \
+            --arg username "ReVanced" \
+            --arg avatar_url "https://i.imgur.com/epsOc0q.png" \
+            --argjson components "$(jq .components payload.json)" \
+            '{content: $content, username: $username, avatar_url: $avatar_url, components: $components, flags: 4}')
+
+          echo "'$JSON_PAYLOAD'"
+      
+          # Send message to Discord webhook
+          curl -X POST -H "Content-Type: application/json" -d "$JSON_PAYLOAD" "https://discord.com/api/webhooks/${DISCORD_WEBHOOK}?with_components=true"
